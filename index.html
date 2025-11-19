@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- SEO & Meta Tags -->
+    <title>مستشار التخطيط المؤسسي GPT | الحل الذكي للاستشارات</title>
+    <meta name="description" content="منصة ذكية تقدم تحليلات استراتيجية، تقارير BIG4، وأدلة إجراءات وسياسات مالية وإدارية فورية باستخدام الذكاء الاصطناعي.">
+    <meta name="keywords" content="استشارات, ذكاء اصطناعي, تحليل استراتيجي, سياسات مالية, SOPs, إدارة أعمال, تخطيط مؤسسي">
+    <meta name="author" content="Strategic Advisor GPT">
+    
+    <!-- PWA & Mobile Capability -->
+    <meta name="theme-color" content="#0ea5e9">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="المستشار">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="المستشار الاستراتيجي الذكي">
+    <meta property="og:description" content="حول بيانات عملك إلى خطط استراتيجية وأدلة تشغيلية في ثوانٍ.">
+    <meta property="og:image" content="/vite.svg">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="المستشار الاستراتيجي الذكي">
+    <meta property="twitter:description" content="حول بيانات عملك إلى خطط استراتيجية وأدلة تشغيلية في ثوانٍ.">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Safely initialize process.env for browser compatibility without overwriting existing keys
+      window.process = window.process || {};
+      window.process.env = window.process.env || {};
+      
+      // Set Bubble credentials if not already present
+      if (!window.process.env.BUBBLE_APP_NAME) window.process.env.BUBBLE_APP_NAME = 'EPA';
+      if (!window.process.env.BUBBLE_API_TOKEN) window.process.env.BUBBLE_API_TOKEN = '983943a6719611d4a03d968d1f30d8d9';
+      
+      // Ensure API_KEY placeholder exists to prevent crashes, but NEVER overwrite if injected by build/hosting
+      if (typeof window.process.env.API_KEY === 'undefined') {
+        window.process.env.API_KEY = ''; 
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
+    "jspdf": "https://aistudiocdn.com/jspdf@^2.5.1",
+    "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1",
+    "i18next": "https://aistudiocdn.com/i18next@^23.11.5",
+    "react-i18next": "https://aistudiocdn.com/react-i18next@^14.1.2",
+    "i18next-browser-languagedetector": "https://aistudiocdn.com/i18next-browser-languagedetector@^8.0.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 antialiased selection:bg-sky-500 selection:text-white">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

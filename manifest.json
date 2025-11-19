@@ -1,0 +1,24 @@
+{
+  "name": "المستشار الاستراتيجي الذكي",
+  "short_name": "المستشار",
+  "description": "مستشارك الاستراتيجي المدعوم بالذكاء الاصطناعي لتحليل المؤسسات وتوليد أدلة السياسات والإجراءات.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0ea5e9",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/vite.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
