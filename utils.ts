@@ -1,12 +1,10 @@
 
 export const getEnv = (key: string): string => {
-  // Check specifically for the global window.process object injected by index.html
-  if (typeof window !== 'undefined' && (window as any).process && (window as any).process.env) {
-    return (window as any).process.env[key] || '';
-  }
-  // Fallback for other environments
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env[key] || '';
+  // In Vite/Vercel, variables are exposed via import.meta.env
+  // We check for the key directly or with VITE_ prefix
+  const meta = import.meta as any;
+  if (meta.env) {
+    return meta.env[key] || meta.env[`VITE_${key}`] || '';
   }
   return '';
 };

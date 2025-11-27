@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, Component, type ErrorInfo, type ReactNode } from 'react';
+import React, { useState, useEffect, useCallback, type ErrorInfo, type ReactNode } from 'react';
 import type { BusinessData, SavedReport, User } from './types';
 import { generateAnalysis } from './services/geminiService';
 // Import services from supabaseService instead of bubbleService
@@ -28,8 +28,8 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false };
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_: Error): ErrorBoundaryState {
     return { hasError: true };
@@ -42,7 +42,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   handleReset = () => {
     this.props.onReset();
     this.setState({ hasError: false });
-  }
+  };
 
   render() {
     if (this.state.hasError) {

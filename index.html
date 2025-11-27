@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
   <head>
@@ -30,42 +31,22 @@
     <meta property="twitter:description" content="حول بيانات عملك إلى خطط استراتيجية وأدلة تشغيلية في ثوانٍ.">
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      // Safely initialize process.env for browser compatibility
-      window.process = window.process || {};
-      window.process.env = window.process.env || {};
-      
-      // Helper to try reading from different potential sources
-      function setEnv(key, fallback) {
-        if (typeof window.process.env[key] === 'undefined') {
-           // Try VITE_ prefix if standard key missing (common in Vite/Vercel)
-           window.process.env[key] = window.process.env[`VITE_${key}`] || fallback || '';
-        }
-      }
-
-      setEnv('API_KEY', '');
-      setEnv('VITE_SUPABASE_URL', '');
-      setEnv('VITE_SUPABASE_ANON_KEY', '');
-      
-      // Legacy Bubble keys (kept for backward compatibility if needed, but unused in new arch)
-      setEnv('BUBBLE_APP_NAME', 'EPA');
-      setEnv('BUBBLE_API_TOKEN', '983943a6719611d4a03d968d1f30d8d9');
-    </script>
   <script type="importmap">
 {
   "imports": {
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+    "i18next": "https://aistudiocdn.com/i18next@^25.6.3",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.86.0",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
-    "jspdf": "https://aistudiocdn.com/jspdf@^2.5.1",
-    "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1",
-    "i18next": "https://aistudiocdn.com/i18next@^23.11.5",
-    "react-i18next": "https://aistudiocdn.com/react-i18next@^14.1.2",
-    "i18next-browser-languagedetector": "https://aistudiocdn.com/i18next-browser-languagedetector@^8.0.0",
-    "recharts": "https://esm.sh/recharts@2.12.0?external=react,react-dom",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.0"
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "jspdf": "https://aistudiocdn.com/jspdf@^3.0.4",
+    "react-i18next": "https://aistudiocdn.com/react-i18next@^16.3.5",
+    "i18next-browser-languagedetector": "https://aistudiocdn.com/i18next-browser-languagedetector@^8.2.0",
+    "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1"
   }
 }
 </script>
