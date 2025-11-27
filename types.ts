@@ -1,3 +1,4 @@
+
 export interface BusinessData {
   organization_name: string;
   sector: string;
@@ -24,22 +25,22 @@ export interface Competitor {
   weaknesses: string;
 }
 
-// The detailed response structure is no longer needed. The AI will return a single formatted string.
 export type AnalysisResponse = string;
 
-// The old HierarchyNode is no longer used in the output.
 export interface HierarchyNode {
   name: string;
   children?: HierarchyNode[];
 }
 
-
 export interface SavedReport {
   id: string;
-  date: string;
+  date: string; // ISO string
   organizationName: string;
   analysis: AnalysisResponse;
-  businessData: BusinessData; // Persist the original input data
+  businessData: BusinessData; 
+  rating?: number;
+  comment?: string;
+  userId?: string; // Owner ID from Supabase
 }
 
 export interface Template {
@@ -51,8 +52,17 @@ export interface Template {
 
 export type ManualType = 'financial_policies' | 'financial_sops' | 'admin_sops';
 
-export interface BubbleUser {
-  _id: string;
+export interface User {
+  id: string;
   email: string;
-  is_logged_in: boolean;
+  aud: string;
+  created_at: string;
+}
+
+export interface KPIBenchmark {
+  kpi: string;
+  companyValue: number;
+  industryAverage: number;
+  unit: string;
+  explanation: string;
 }

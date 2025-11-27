@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import type { BusinessData, SavedReport, BubbleUser } from './types';
+
+import React, { useState, useEffect, useCallback, Component, type ErrorInfo, type ReactNode } from 'react';
+import type { BusinessData, SavedReport, User } from './types';
 import { generateAnalysis } from './services/geminiService';
-import { getReports as fetchReports, createReport, deleteReport as removeReport } from './services/bubbleService';
+// Import services from supabaseService instead of bubbleService
+import { supabase, getReports, createReport, deleteReport as removeReport, signOut } from './services/supabaseService';
 import InputForm from './components/InputForm';
 import AnalysisDisplay from './components/AnalysisDisplay';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -15,19 +17,9 @@ import LanguageSwitcher from './components/LanguageSwitcher';
 
 type View = 'landing' | 'form' | 'loading' | 'analysis' | 'history' | 'error';
 
-// Mock Bubble user for demonstration purposes if not running inside Bubble
-// In a real Bubble environment, window.bubble_user would be populated
-if (typeof (window as any).bubble_user === 'undefined') {
-  (window as any).bubble_user = {
-    is_logged_in: false,
-    _id: '',
-    email: '',
-  };
-}
-
 // Error Boundary Component
 interface ErrorBoundaryProps {
-  children: React.ReactNode;
+  children?: ReactNode;
   onReset: () => void;
   t: (key: string) => string;
 }
@@ -36,24 +28,21 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_: Error): ErrorBoundaryState {
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
   handleReset = () => {
     this.props.onReset();
     this.setState({ hasError: false });
-  };
+  }
 
   render() {
     if (this.state.hasError) {
@@ -83,15 +72,14 @@ const App: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [currentBusinessData, setCurrentBusinessData] = useState<BusinessData | null>(null);
+  const [currentReportId, setCurrentReportId] = useState<string | null>(null);
   const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
-  // Initial view is now 'landing' to act as a website homepage
   const [currentView, setCurrentView] = useState<View>('landing');
   const [error, setError] = useState<string | null>(null);
   const [showTour, setShowTour] = useState<boolean>(false);
 
-  const [currentUser, setCurrentUser] = useState<BubbleUser | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isReportsLoading, setIsReportsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isReportsLoading, setIsReportsLoading] = useState(false);
 
   useEffect(() => {
     document.documentElement.lang = i18n.language;
@@ -99,36 +87,43 @@ const App: React.FC = () => {
     document.title = `${t('app.title')} ${t('app.gbt')}`;
   }, [i18n.language, i18n, t]);
 
+  // Supabase Auth Listener
   useEffect(() => {
-    // Check for Bubble user session and fetch reports
-    const bubbleUser = (window as any).bubble_user as BubbleUser;
-    if (bubbleUser && bubbleUser.is_logged_in) {
-      setIsAuthenticated(true);
-      setCurrentUser(bubbleUser);
-      setIsReportsLoading(true);
-      fetchReports()
-        .then(reports => {
-          setSavedReports(reports);
-        })
-        .catch(err => {
-          console.error("Failed to load saved reports from Bubble:", err);
-          setError(t('app.errorModal.bubble.loadError'));
-        })
-        .finally(() => {
-          setIsReportsLoading(false);
-        });
-    } else {
-      setIsReportsLoading(false);
-      setSavedReports([]);
-    }
+    if (!supabase) return;
 
-    // Check if the tour has been completed
-    const tourCompleted = localStorage.getItem('enterpriseArchitectTourCompleted');
-    if (!tourCompleted) {
-       // Only show tour once the user enters the form view
-       // Check inside the render logic or useEffect dependency on currentView
-    }
-  }, []); // Empty dependency array to run once
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user as unknown as User || null);
+    });
+
+    // Listen for changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user as unknown as User || null);
+      if (session?.user) {
+          // Auto fetch reports on login
+          loadReports();
+      } else {
+          setSavedReports([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const loadReports = async () => {
+      setIsReportsLoading(true);
+      try {
+          const reports = await getReports();
+          setSavedReports(reports);
+      } catch (err) {
+          console.error("Failed to load reports:", err);
+          // Don't block UI, just log error
+      } finally {
+          setIsReportsLoading(false);
+      }
+  };
 
   // Trigger tour only when entering form view
   useEffect(() => {
@@ -150,12 +145,13 @@ const App: React.FC = () => {
     setError(null);
     setAnalysisResult(null);
     setCurrentBusinessData(data);
+    setCurrentReportId(null);
 
     try {
       const result = await generateAnalysis(data, i18n.language);
       setAnalysisResult(result);
       
-      if (isAuthenticated) {
+      if (currentUser) {
         const newReportData = {
           organizationName: data.organization_name,
           analysis: result,
@@ -164,8 +160,7 @@ const App: React.FC = () => {
 
         const savedReport = await createReport(newReportData);
         setSavedReports(prevReports => [savedReport, ...prevReports]);
-      } else {
-         console.warn("User not authenticated. Report not saved to Bubble.");
+        setCurrentReportId(savedReport.id);
       }
 
       setCurrentView('analysis');
@@ -174,13 +169,23 @@ const App: React.FC = () => {
       let errorMessage = t('app.errorModal.unknownError');
       
       if (err instanceof Error) {
-        if (err.message.includes('JSON')) {
+        const msg = err.message.toLowerCase();
+
+        if (msg.includes('json') || msg.includes('invalid_json_format')) {
           errorMessage = t('app.errorModal.jsonError');
-        } else if (err.message.toLowerCase().includes('fetch') || err.message.toLowerCase().includes('network')) {
+        } else if (msg.includes('empty_response')) {
+           errorMessage = t('app.errorModal.emptyResponse');
+        } else if (msg.includes('fetch') || msg.includes('network') || msg.includes('failed to fetch')) {
            errorMessage = t('app.errorModal.networkError');
-        } else if (err.message.includes('Bubble')) {
-            errorMessage = t('app.errorModal.bubble.saveError');
-        } else {
+        } else if (msg.includes('save') || msg.includes('database')) {
+            errorMessage = t('app.errorModal.bubble.saveError'); // Generic save error
+        } else if (msg.includes('429') || msg.includes('quota') || msg.includes('exhausted')) {
+             errorMessage = t('app.errorModal.quotaExceeded');
+        } else if (msg.includes('401') || msg.includes('403') || msg.includes('key') || msg.includes('unauthorized')) {
+             errorMessage = t('app.errorModal.invalidKey');
+        } else if (msg.includes('block') || msg.includes('safety') || msg.includes('policy')) {
+             errorMessage = t('app.errorModal.safetyBlock');
+        } else if (msg.includes('503') || msg.includes('500') || msg.includes('overloaded')) {
             errorMessage = t('app.errorModal.geminiError');
         }
       }
@@ -188,11 +193,12 @@ const App: React.FC = () => {
       setError(errorMessage);
       setCurrentView('error');
     }
-  }, [i18n.language, t, isAuthenticated]);
+  }, [i18n.language, t, currentUser]);
 
   const handleStartNew = () => {
     setAnalysisResult(null);
     setCurrentBusinessData(null);
+    setCurrentReportId(null);
     setError(null);
     setCurrentView('form');
   };
@@ -208,27 +214,27 @@ const App: React.FC = () => {
   const handleViewReport = (report: SavedReport) => {
     setAnalysisResult(report.analysis);
     setCurrentBusinessData(report.businessData);
+    setCurrentReportId(report.id);
     setCurrentView('analysis');
   }
 
   const handleDeleteReport = async (reportId: string) => {
+    if (!confirm("Are you sure you want to delete this report?")) return;
     try {
       await removeReport(reportId);
       setSavedReports(prevReports => prevReports.filter(r => r.id !== reportId));
+      if (currentReportId === reportId) {
+        handleStartNew();
+      }
     } catch(err) {
-       console.error("Failed to delete report from Bubble:", err);
+       console.error("Failed to delete report:", err);
        alert(t('app.errorModal.bubble.deleteError'));
     }
   }
-  
-  const handleLogin = () => {
-    // In a real app, this would redirect to Bubble's login page
-    alert(t('auth.loginRedirect'));
-  };
 
-  const handleLogout = () => {
-    // In a real app, this would redirect to Bubble's logout flow
-     alert(t('auth.logoutRedirect'));
+  const handleLogout = async () => {
+    await signOut();
+    setCurrentView('landing');
   };
 
   const renderContent = () => {
@@ -258,7 +264,12 @@ const App: React.FC = () => {
         if (analysisResult && currentBusinessData) {
           return (
             <div className="max-w-7xl mx-auto p-4 sm:p-6">
-                <AnalysisDisplay analysis={analysisResult} businessData={currentBusinessData} onStartNew={handleStartNew} />
+                <AnalysisDisplay 
+                  analysis={analysisResult} 
+                  businessData={currentBusinessData} 
+                  reportId={currentReportId}
+                  onStartNew={handleStartNew} 
+                />
             </div>
           );
         }
@@ -274,7 +285,7 @@ const App: React.FC = () => {
       default:
         return (
             <div className="max-w-4xl mx-auto p-4 sm:p-6">
-                <InputForm onAnalyze={handleAnalysisRequest} onViewHistory={handleViewHistory} hasHistory={isAuthenticated && savedReports.length > 0} isAuthenticated={isAuthenticated} />
+                <InputForm onAnalyze={handleAnalysisRequest} onViewHistory={handleViewHistory} hasHistory={!!currentUser && savedReports.length > 0} isAuthenticated={!!currentUser} />
             </div>
         );
     }
@@ -302,7 +313,7 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-4">
                     <LanguageSwitcher />
                     <div className="h-6 w-px bg-slate-300 dark:bg-slate-700"></div>
-                    <Auth user={currentUser} onLogin={handleLogin} onLogout={handleLogout} />
+                    <Auth user={currentUser} onLogout={handleLogout} />
                 </div>
             </div>
         </div>

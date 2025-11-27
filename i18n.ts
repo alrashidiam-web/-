@@ -1,3 +1,4 @@
+
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
@@ -15,9 +16,13 @@ const translationsEN = {
     },
     errorModal: {
         title: "An Error Occurred",
-        jsonError: "Failed to parse the AI response. The format might be unexpected. Please adjust your inputs and try again.",
-        networkError: "A network error occurred while connecting to the service. Please check your internet connection.",
-        geminiError: "The AI service encountered an error. This might be due to high load or a temporary issue. Please wait a moment and try again.",
+        jsonError: "The AI output format was invalid. Please try adding more specific details to your 'Operational Processes Overview' to provide better context.",
+        networkError: "Connection failed. Please check your internet connection and try again.",
+        geminiError: "The AI service is currently experiencing high load. Please wait a moment and try again.",
+        quotaExceeded: "System busy (Rate Limit). Please wait 60 seconds before trying again.",
+        invalidKey: "Authentication failed. The API key is missing or invalid.",
+        safetyBlock: "Content flagged by safety filters. Please revise your input to be more professional and remove any sensitive terms.",
+        emptyResponse: "The AI returned an empty response. Please try expanding your input data.",
         bubble: {
             loadError: "Could not load your saved reports. Please check your connection and try again.",
             saveError: "Failed to save the report to your account. Please try again.",
@@ -205,6 +210,14 @@ const translationsEN = {
     printButton: "Print Report",
     pdfButton: "Export PDF",
     pdfGenerating: "Generating PDF...",
+    benchmarks: {
+      title: "Financial & Operational Benchmarks",
+      subtitle: "Compare estimated company performance against industry averages.",
+      generateButton: "Generate Industry Benchmarks",
+      error: "Failed to generate benchmarks. Please try again.",
+      companyLabel: "Estimated Company Value",
+      industryLabel: "Industry Average"
+    },
     manuals: {
         title: "Next Steps: Generate Working Guides",
         subtitle: "Based on the analysis, you can now generate detailed policies and procedures manuals for your organization.",
@@ -222,6 +235,13 @@ const translationsEN = {
             description: "Organizes daily operational and administrative workflows."
         }
     },
+    feedback: {
+        title: "Rate this Analysis",
+        ratingLabel: "How useful was this report?",
+        placeholder: "Any additional comments or suggestions? (Optional)",
+        submit: "Submit Feedback",
+        success: "Thank you for your feedback!"
+    }
   },
   manualDisplayModal: {
     close: "Close",
@@ -252,7 +272,7 @@ const translationsEN = {
       },
       {
         title: "Describe Your Operations",
-        content: "This field is the most important. The more detailed your description of your operational processes, the deeper and more useful the analysis results will be."
+        content: "This field is the most important. The more detailed your description of your operational processes, the better the AI's analysis."
       },
       {
         title: "Get Your Analysis",
@@ -291,9 +311,13 @@ const translationsAR = {
     },
     errorModal: {
         title: "حدث خطأ",
-        jsonError: "فشل في تحليل استجابة الذكاء الاصطناعي. قد يكون التنسيق غير متوقع. يرجى تعديل المدخلات والمحاولة مرة أخرى.",
-        networkError: "حدث خطأ في الشبكة أثناء الاتصال بالخدمة. يرجى التحقق من اتصالك بالإنترنت.",
-        geminiError: "واجهت خدمة الذكاء الاصطناعي خطأ. قد يكون هذا بسبب الحمل الزائد أو مشكلة مؤقتة. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.",
+        jsonError: "تنسيق مخرجات الذكاء الاصطناعي غير صالح. يرجى محاولة إضافة تفاصيل أكثر دقة في 'نظرة عامة على العمليات' لتوفير سياق أفضل.",
+        networkError: "فشل الاتصال. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.",
+        geminiError: "خدمة الذكاء الاصطناعي تواجه ضغطًا عاليًا حاليًا. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.",
+        quotaExceeded: "النظام مشغول (تجاوز الحد). يرجى الانتظار لمدة 60 ثانية قبل المحاولة مرة أخرى.",
+        invalidKey: "فشل المصادقة. مفتاح API مفقود أو غير صالح.",
+        safetyBlock: "تم حظر المحتوى بواسطة مرشحات الأمان. يرجى تعديل المدخلات لتكون أكثر احترافية وإزالة أي مصطلحات حساسة.",
+        emptyResponse: "أعاد الذكاء الاصطناعي استجابة فارغة. يرجى محاولة توسيع البيانات المدخلة.",
         bubble: {
             loadError: "تعذر تحميل تقاريرك المحفوظة. يرجى التحقق من اتصالك والمحاولة مرة أخرى.",
             saveError: "فشل حفظ التقرير في حسابك. يرجى المحاولة مرة أخرى.",
@@ -481,6 +505,14 @@ const translationsAR = {
     printButton: "طباعة التقرير",
     pdfButton: "تصدير PDF",
     pdfGenerating: "جاري التصدير...",
+    benchmarks: {
+      title: "المعايير المالية والتشغيلية",
+      subtitle: "مقارنة أداء الشركة التقديري مع متوسطات الصناعة.",
+      generateButton: "توليد معايير الصناعة",
+      error: "فشل في توليد المعايير. يرجى المحاولة مرة أخرى.",
+      companyLabel: "قيمة الشركة التقديرية",
+      industryLabel: "متوسط الصناعة"
+    },
     manuals: {
         title: "الخطوات التالية: إنشاء أدلة العمل",
         subtitle: "بناءً على التحليل، يمكنك الآن إنشاء أدلة سياسات وإجراءات مفصلة لمنظمتك.",
@@ -498,6 +530,13 @@ const translationsAR = {
             description: "ينظم سير العمل التشغيلي والإداري اليومي."
         }
     },
+    feedback: {
+        title: "قيّم هذا التحليل",
+        ratingLabel: "ما مدى فائدة هذا التقرير؟",
+        placeholder: "أي تعليقات أو اقتراحات إضافية؟ (اختياري)",
+        submit: "إرسال التقييم",
+        success: "شكراً لك على تقييمك!"
+    }
   },
   manualDisplayModal: {
     close: "إغلاق",

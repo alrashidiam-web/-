@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { simpleTextToHtml } from './AnalysisDisplay';
+import { simpleTextToHtml } from '../utils';
 import { XMarkIcon, DocumentDuplicateIcon, CheckIcon } from './icons';
 
 interface ManualDisplayModalProps {

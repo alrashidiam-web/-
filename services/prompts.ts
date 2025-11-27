@@ -1,8 +1,10 @@
+
 import type { BusinessData, ManualType } from '../types';
 
 interface Prompts {
   system: string;
   user: (data: BusinessData) => string;
+  benchmark?: (data: BusinessData) => string;
 }
 
 interface ManualPrompts {
@@ -78,6 +80,21 @@ const prompts: Record<string, Prompts> = {
 `,
     user: (data) => {
       let prompt = `يرجى إنشاء تقرير استشاري كامل بناءً على بيانات العمل التالية، مع الالتزام الصارم بالهيكل والتنسيق المطلوبين في تعليمات النظام.\n\n**بيانات العمل:**\n- **اسم المنظمة:** ${data.organization_name}\n- **القطاع:** ${data.sector}\n- **الحجم:** ${data.size}\n- **الأقسام الرئيسية:** ${data.key_departments}\n- **نظام المحاسبة الحالي:** ${data.current_accounting_system}\n- **نظرة عامة على العمليات التشغيلية:** ${data.operational_processes_overview}\n`;
+      
+      // Logic to control report depth based on detail_level
+      switch (data.detail_level) {
+        case 'summary':
+          prompt += `\n**مستوى التفاصيل المطلوب: ملخص (Summary)**\n- الهدف: تقديم نظرة عامة سريعة للإدارة العليا.\n- الإيجاز: اختصر الشرح وركز على النقاط الجوهرية فقط.\n- الجداول: اكتفِ بأهم 3-5 عناصر في كل جدول.\n- التركيز: الملخص التنفيذي والتوصيات العاجلة هي الأهم.\n- الطول: اجعل الفقرات قصيرة ومباشرة.\n`;
+          break;
+        case 'detailed':
+          prompt += `\n**مستوى التفاصيل المطلوب: مفصل (Detailed)**\n- الهدف: تقديم تقرير استشاري قياسي.\n- التوازن: اشرح النقاط بوضوح مع تقديم سياق كافٍ.\n- الجداول: قدم جداول كاملة.\n- التحليل: تعمق في تحليل الفجوات والمبادرات بشكل متوازن.\n`;
+          break;
+        case 'comprehensive':
+        default:
+          prompt += `\n**مستوى التفاصيل المطلوب: شامل (Comprehensive)**\n- الهدف: مرجع كامل للتنفيذ.\n- العمق: قدم تحليلاً جذرياً وعميقاً جداً لكل نقطة.\n- التفاصيل: لا تترك أي تفصيل دون ذكره (الأرقام، التوقعات، المسؤوليات).\n- خطة التنفيذ: يجب أن تكون مفصلة جداً مع مهام فرعية.\n- الجداول: موسعة وشاملة لكل البيانات المتاحة.\n`;
+          break;
+      }
+
       if (data.target_audience) prompt += `- **الجمهور المستهدف للتقرير:** ${data.target_audience}\n`;
       if (data.custom_strengths) prompt += `- **نقاط القوة (من المستخدم):** ${data.custom_strengths}\n`;
       if (data.custom_weaknesses) prompt += `- **نقاط الضعف (من المستخدم):** ${data.custom_weaknesses}\n`;
@@ -89,6 +106,27 @@ const prompts: Record<string, Prompts> = {
       }
       return prompt;
     },
+    benchmark: (data) => `
+    أنت محلل بيانات مالية خبير. بناءً على وصف الشركة أدناه، قم بتقدير 5 مؤشرات أداء رئيسية (KPIs) مالية أو تشغيلية هامة لهذه الشركة ومقارنتها بمتوسط الصناعة.
+    
+    البيانات:
+    - القطاع: ${data.sector}
+    - الحجم: ${data.size}
+    - الوصف التشغيلي: ${data.operational_processes_overview}
+
+    المطلوب:
+    أخرج البيانات بصيغة JSON فقط (Array of objects). لا تضف أي نص آخر.
+    الهيكل المطلوب لكل عنصر:
+    {
+      "kpi": "اسم المؤشر بالعربية",
+      "companyValue": رقم_تقديري_للشركة,
+      "industryAverage": رقم_متوسط_الصناعة,
+      "unit": "الوحدة (مثال: %, $, يوم)",
+      "explanation": "شرح قصير جداً لسبب التقدير"
+    }
+
+    قدر القيم بناءً على التحديات المذكورة في الوصف (مثلاً إذا كان الوصف يذكر مشاكل في المخزون، اجعل دوران المخزون أسوأ من السوق).
+    `
   },
   en: {
     system: `
@@ -157,6 +195,21 @@ A general summary, the top 10 focused recommendations, potential implementation 
 `,
     user: (data) => {
         let prompt = `Please generate a complete consulting report based on the following business data, strictly adhering to the structure and formatting required in the system instructions.\n\n**Business Data:**\n- **Organization Name:** ${data.organization_name}\n- **Sector:** ${data.sector}\n- **Size:** ${data.size}\n- **Key Departments:** ${data.key_departments}\n- **Current Accounting System:** ${data.current_accounting_system}\n- **Operational Processes Overview:** ${data.operational_processes_overview}\n`;
+
+        // Logic to control report depth based on detail_level
+        switch (data.detail_level) {
+          case 'summary':
+            prompt += `\n**Required Detail Level: Summary**\n- Goal: Provide a quick overview for C-level executives.\n- Brevity: Keep explanations brief and focus on high-level insights.\n- Tables: Limit to top 3-5 items.\n- Focus: Mainly on Executive Summary and immediate recommendations.\n- Length: Keep paragraphs short and direct.\n`;
+            break;
+          case 'detailed':
+            prompt += `\n**Required Detail Level: Detailed**\n- Goal: Provide a standard balanced consulting report.\n- Balance: Explain points clearly with sufficient context and practical examples.\n- Tables: Provide complete tables.\n- Analysis: Go into depth on gap analysis and initiatives.\n`;
+            break;
+          case 'comprehensive':
+          default:
+            prompt += `\n**Required Detail Level: Comprehensive**\n- Goal: A complete reference for implementation.\n- Depth: Provide exhaustive, deep-dive analysis for every section.\n- Details: Do not omit any detail (numbers, forecasts, responsibilities).\n- Roadmap: Must be very detailed with sub-tasks.\n- Tables: Expanded and comprehensive.\n`;
+            break;
+        }
+
         if (data.target_audience) prompt += `- **Target Audience for Report:** ${data.target_audience}\n`;
         if (data.custom_strengths) prompt += `- **Strengths (from user):** ${data.custom_strengths}\n`;
         if (data.custom_weaknesses) prompt += `- **Weaknesses (from user):** ${data.custom_weaknesses}\n`;
@@ -168,6 +221,27 @@ A general summary, the top 10 focused recommendations, potential implementation 
         }
         return prompt;
     },
+    benchmark: (data) => `
+    You are an expert financial data analyst. Based on the company description below, estimate 5 key financial or operational KPIs for this specific company and compare them to the industry average.
+    
+    Data:
+    - Sector: ${data.sector}
+    - Size: ${data.size}
+    - Operational Overview: ${data.operational_processes_overview}
+
+    Requirement:
+    Output strictly JSON only (Array of objects). No markdown, no extra text.
+    Format for each object:
+    {
+      "kpi": "KPI Name in English",
+      "companyValue": estimated_number_for_company,
+      "industryAverage": industry_average_number,
+      "unit": "Unit (e.g., %, $, days)",
+      "explanation": "Very short reason for the estimate"
+    }
+
+    Estimate the company values based on the challenges/strengths implied in the operational overview (e.g., if they mention inventory issues, make Inventory Turnover worse than average).
+    `
   }
 };
 
@@ -191,13 +265,13 @@ const manualPrompts: Record<string, ManualPrompts> = {
     9.  سياسة الموازنات والتخطيط المالي
     10. سياسة التقارير المالية
     11. سياسة الربط المحاسبي مع الأنظمة الأخرى
-2.  **تنسيق كل سياسة:** يجب أن تحتوي كل سياسة على العناوين الفرعية التالية:
-    *   **الهدف**
-    *   **النطاق**
-    *   **التعاريف**
-    *   **السياسة** (هذا هو الجزء الأكثر تفصيلاً)
-    *   **المسؤوليات**
-    *   **الضوابط**
+2.  **تنسيق كل سياسة:** يجب أن تحتوي كل سياسة على العناوين الفرعية التالية، **مع استخدام تنسيق Markdown (###) للعناوين الفرعية**:
+    *   **### 1. الهدف**
+    *   **### 2. النطاق**
+    *   **### 3. التعاريف**
+    *   **### 4. السياسة** (هذا هو الجزء الأكثر تفصيلاً)
+    *   **### 5. المسؤوليات**
+    *   **### 6. الضوابط**
 3.  **الجودة:** استخدم لغة احترافية، سهلة الفهم، وقابلة للتطبيق مباشرة. قدم أمثلة عملية عند الضرورة واستخدم جداول إذا لزم الأمر.
 4.  **التخصيص:** استخدم بيانات المنشأة لتخصيص محتوى السياسات ليعكس حجمها ونشاطها ومنطقتها الجغرافية.
 `,
@@ -206,24 +280,16 @@ const manualPrompts: Record<string, ManualPrompts> = {
 
 **قواعد صارمة:**
 1.  **التخصص:** ركز حصريًا على **الإجراءات المالية (SOPs)**. لا تقم بتضمين سياسات أو إجراءات إدارية.
-2.  **الهيكل الإلزامي:** يجب أن يحتوي الدليل على الإجراءات الثمانية التالية بالترتيب، مع ترقيمها:
-    1.  إجراء إدارة النقد.
-    2.  إجراء الصرف.
-    3.  إجراء إعداد الفواتير.
-    4.  إجراء تسجيل القيود.
-    5.  إجراء المطابقات البنكية.
-    6.  إجراء الجرد.
-    7.  إجراء تسجيل الإيرادات.
-    8.  إجراء إعداد التقارير المالية الدورية.
-3.  **تنسيق كل إجراء (SOP):** يجب أن يحتوي كل إجراء من الإجراءات الثمانية على العناوين الفرعية التالية بالترتيب:
-    *   **1. الهدف:** (Purpose)
-    *   **2. النطاق:** (Scope)
-    *   **3. المدخلات:** (Inputs)
-    *   **4. الخطوات بالتسلسل:** (Sequential Steps) - هذا هو الجزء الأكثر تفصيلاً، ويجب أن يكون مرقمًا.
-    *   **5. المخرجات:** (Outputs)
-    *   **6. القيود:** (Constraints)
-    *   **7. المسؤوليات:** (Responsibilities)
-    *   **8. النماذج المستخدمة:** (Forms Used)
+2.  **الهيكل الإلزامي:** يجب أن يحتوي الدليل على الإجراءات الثمانية التالية بالترتيب، مع ترقيمها.
+3.  **تنسيق كل إجراء (SOP):** يجب أن يحتوي كل إجراء من الإجراءات الثمانية على العناوين الفرعية التالية بالترتيب، **مع استخدام تنسيق Markdown (###)**:
+    *   **### 1. الهدف** (Purpose)
+    *   **### 2. النطاق** (Scope)
+    *   **### 3. المدخلات** (Inputs)
+    *   **### 4. الخطوات بالتسلسل** (Sequential Steps): **يجب** ذكر اسم النظام المحاسبي للمستخدم وأسماء الأقسام في الخطوات لضمان التخصيص.
+    *   **### 5. المخرجات** (Outputs)
+    *   **### 6. القيود** (Constraints)
+    *   **### 7. المسؤوليات** (Responsibilities)
+    *   **### 8. النماذج المستخدمة** (Forms Used)
 4.  **الجودة:** يجب أن تكون الخطوات واضحة، منطقية، وعملية. استخدم لغة عربية رسمية ومباشرة.
 5.  **التخصيص:** قم بتكييف الإجراءات لتعكس العمليات المحددة للمنشأة، مع الأخذ في الاعتبار نظامها المحاسبي وأقسامها الرئيسية المذكورة في البيانات.
 `,
@@ -232,24 +298,16 @@ const manualPrompts: Record<string, ManualPrompts> = {
 
 **قواعد صارمة:**
 1.  **التخصص:** ركز حصريًا على **الإجراءات الإدارية والتشغيلية**. لا تقم بتضمين إجراءات مالية.
-2.  **الهيكل الإلزامي:** يجب أن يحتوي الدليل على الإجراءات الثمانية التالية بالترتيب، مع ترقيمها:
-    1.  إجراءات التسجيل والقبول (أو إعداد العملاء الجدد).
-    2.  إجراءات التواصل والمتابعة مع العملاء.
-    3.  إجراءات الموارد البشرية (الحضور – الغياب – الإجازات – التقييم).
-    4.  إجراءات التسويق والمبيعات.
-    5.  إجراءات الاجتماعات الداخلية.
-    6.  إجراءات إدارة المستندات والسجلات.
-    7.  إجراءات حماية المعلومات.
-    8.  إجراءات الإرشاد والدعم (الطلابي أو للعملاء).
-3.  **تنسيق كل إجراء (SOP):** يجب أن يحتوي كل إجراء من الإجراءات الثمانية على العناوين الفرعية التالية بالترتيب:
-    *   **1. الهدف:** (Purpose)
-    *   **2. النطاق:** (Scope)
-    *   **3. المدخلات:** (Inputs)
-    *   **4. الخطوات بالتسلسل:** (Sequential Steps) - هذا هو الجزء الأكثر تفصيلاً، ويجب أن يكون مرقمًا.
-    *   **5. المخرجات:** (Outputs)
-    *   **6. القيود:** (Constraints)
-    *   **7. المسؤوليات:** (Responsibilities)
-    *   **8. النماذج المستخدمة:** (Forms Used)
+2.  **الهيكل الإلزامي:** يجب أن يحتوي الدليل على الإجراءات الثمانية التالية بالترتيب، مع ترقيمها.
+3.  **تنسيق كل إجراء (SOP):** يجب أن يحتوي كل إجراء من الإجراءات الثمانية على العناوين الفرعية التالية بالترتيب، **مع استخدام تنسيق Markdown (###)**:
+    *   **### 1. الهدف** (Purpose)
+    *   **### 2. النطاق** (Scope)
+    *   **### 3. المدخلات** (Inputs)
+    *   **### 4. الخطوات بالتسلسل** (Sequential Steps): **يجب** ذكر أسماء الأقسام المعنية (مثل الموارد البشرية، المبيعات) في الخطوات لضمان التخصيص.
+    *   **### 5. المخرجات** (Outputs)
+    *   **### 6. القيود** (Constraints)
+    *   **### 7. المسؤوليات** (Responsibilities)
+    *   **### 8. النماذج المستخدمة** (Forms Used)
 4.  **الجودة:** يجب أن تكون الإجراءات واضحة، قابلة للتطبيق، وتساهم في تحسين الكفاءة التنظيمية. استخدم لغة عربية رسمية ومباشرة.
 5.  **التخصيص:** صمم الإجراءات لتناسب طبيعة عمل المنشأة وقطاعها (تجارة إلكترونية، صناعية، خدماتية، إلخ) بناءً على البيانات المدخلة.
 `
@@ -265,7 +323,7 @@ const manualPrompts: Record<string, ManualPrompts> = {
 - **النظام الحالي:** ${businessData.current_accounting_system}
 - **ملخص العمليات:** ${businessData.operational_processes_overview}
 
-ابدأ فورًا بإنتاج الدليل المطلوب كاملاً، مع الالتزام الصارم بجميع القواعد المحددة في تعليمات النظام.
+ابدأ فورًا بإنتاج الدليل المطلوب كاملاً، مع الالتزام الصارم بجميع القواعد المحددة في تعليمات النظام وتنسيقات Markdown.
 `
     },
     en: {
@@ -287,13 +345,13 @@ Your task is to prepare a **comprehensive and professional Financial Policies Ma
     9.  Budgeting and Financial Planning Policy
     10. Financial Reporting Policy
     11. Accounting Integration with Other Systems Policy
-2.  **Format for Each Policy:** Each policy must contain the following subheadings:
-    *   **Purpose**
-    *   **Scope**
-    *   **Definitions**
-    *   **Policy** (This is the most detailed section)
-    *   **Responsibilities**
-    *   **Controls**
+2.  **Format for Each Policy:** Each policy must contain the following subheadings, **using Markdown format (###)**:
+    *   **### 1. Purpose**
+    *   **### 2. Scope**
+    *   **### 3. Definitions**
+    *   **### 4. Policy** (This is the most detailed section)
+    *   **### 5. Responsibilities**
+    *   **### 6. Controls**
 3.  **Quality:** Use professional, easy-to-understand language that is directly applicable. Provide practical examples and use tables where necessary.
 4.  **Customization:** Use the company's data to tailor the policy content to reflect its size, activity, and geographical location.
 `,
@@ -302,24 +360,16 @@ As a financial process reengineering expert (in the style of Accenture), prepare
 
 **Strict Rules:**
 1.  **Specialization:** Focus exclusively on **financial procedures (SOPs)**. Do not include policies or administrative procedures.
-2.  **Mandatory Structure:** The manual must contain the following eight procedures in order, numbered:
-    1.  Cash Management Procedure.
-    2.  Disbursement Procedure.
-    3.  Invoicing Procedure.
-    4.  Journal Entry Procedure.
-    5.  Bank Reconciliation Procedure.
-    6.  Inventory Count Procedure.
-    7.  Revenue Recognition Procedure.
-    8.  Periodic Financial Reporting Procedure.
-3.  **Format for Each SOP:** Each of the eight procedures must contain the following subheadings in order:
-    *   **1. Purpose:**
-    *   **2. Scope:**
-    *   **3. Inputs:**
-    *   **4. Sequential Steps:** - This is the most detailed, numbered section.
-    *   **5. Outputs:**
-    *   **6. Constraints:**
-    *   **7. Responsibilities:**
-    *   **8. Forms Used:**
+2.  **Mandatory Structure:** The manual must contain the following eight procedures in order, numbered.
+3.  **Format for Each SOP:** Each of the eight procedures must contain the following subheadings in order, **using Markdown format (###)**:
+    *   **### 1. Purpose**
+    *   **### 2. Scope**
+    *   **### 3. Inputs**
+    *   **### 4. Sequential Steps**: You **MUST** explicitly reference the user's specific accounting system and departments in these steps to ensure customization.
+    *   **### 5. Outputs**
+    *   **### 6. Constraints**
+    *   **### 7. Responsibilities**
+    *   **### 8. Forms Used**
 4.  **Quality:** The steps must be clear, logical, and practical. Use formal and direct English.
 5.  **Customization:** Adapt the procedures to reflect the specific operations of the company, considering its accounting system and key departments mentioned in the data.
 `,
@@ -328,24 +378,16 @@ As a consultant in administrative process improvement (in the style of Deloitte)
 
 **Strict Rules:**
 1.  **Specialization:** Focus exclusively on **administrative and operational procedures**. Do not include financial procedures.
-2.  **Mandatory Structure:** The manual must contain the following eight procedures in order, numbered:
-    1.  Registration and Onboarding Procedures (for clients/customers).
-    2.  Client Communication and Follow-up Procedures.
-    3.  Human Resources Procedures (Attendance, Leave, Absences, Evaluation).
-    4.  Marketing and Sales Procedures.
-    5.  Internal Meetings Procedures.
-    6.  Document and Records Management Procedures.
-    7.  Information Protection Procedures.
-    8.  Guidance and Support Procedures (for students or clients).
-3.  **Format for Each SOP:** Each of the eight procedures must contain the following subheadings in order:
-    *   **1. Purpose:**
-    *   **2. Scope:**
-    *   **3. Inputs:**
-    *   **4. Sequential Steps:** - This is the most detailed, numbered section.
-    *   **5. Outputs:**
-    *   **6. Constraints:**
-    *   **7. Responsibilities:**
-    *   **8. Forms Used:**
+2.  **Mandatory Structure:** The manual must contain the following eight procedures in order, numbered.
+3.  **Format for Each SOP:** Each of the eight procedures must contain the following subheadings in order, **using Markdown format (###)**:
+    *   **### 1. Purpose**
+    *   **### 2. Scope**
+    *   **### 3. Inputs**
+    *   **### 4. Sequential Steps**: You **MUST** explicitly reference the relevant departments (e.g., HR, Sales) in the steps to ensure customization.
+    *   **### 5. Outputs**
+    *   **### 6. Constraints**
+    *   **### 7. Responsibilities**
+    *   **### 8. Forms Used**
 4.  **Quality:** The procedures must be clear, applicable, and contribute to improving organizational efficiency. Use formal and direct English.
 5.  **Customization:** Design the procedures to fit the nature of the company's business and sector (e.g., e-commerce, manufacturing, services) based on the input data.
 `
@@ -361,7 +403,7 @@ Prepare the requested manual based on the following company data:
 - **Current System:** ${businessData.current_accounting_system}
 - **Process Summary:** ${businessData.operational_processes_overview}
 
-Start producing the required manual immediately, strictly adhering to all rules specified in the system instructions.
+Start producing the required manual immediately, strictly adhering to all rules specified in the system instructions and Markdown formatting.
 `
     }
 }

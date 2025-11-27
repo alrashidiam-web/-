@@ -1,104 +1,24 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DownloadIcon, DocumentDuplicateIcon, CheckIcon, BanknotesIcon, ClipboardDocumentListIcon, BriefcaseIcon, PdfIcon } from './icons';
-import type { BusinessData, ManualType } from '../types';
-import { generateManual } from '../services/geminiService';
+import { DownloadIcon, DocumentDuplicateIcon, CheckIcon, BanknotesIcon, ClipboardDocumentListIcon, BriefcaseIcon, PdfIcon, StarIcon, ChartBarIcon } from './icons';
+import type { BusinessData, ManualType, KPIBenchmark } from '../types';
+import { generateManual, getKeyPerformanceIndicators } from '../services/geminiService';
+import { submitFeedback } from '../services/bubbleService';
 import ManualDisplayModal from './ManualDisplayModal';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import { simpleTextToHtml } from '../utils';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface AnalysisDisplayProps {
   analysis: string;
   businessData: BusinessData;
+  reportId: string | null;
   onStartNew: () => void;
 }
 
-// Simple text to HTML converter to render the structured report
-export const simpleTextToHtml = (text: string): string => {
-    if (!text) return '';
-
-    let html = text;
-
-    // Preserve newlines in code blocks or preformatted text
-    html = html.replace(/```([\s\S]*?)```/g, (match, content) => {
-        return `<pre class="bg-slate-100 dark:bg-slate-900 p-4 rounded-md overflow-x-auto text-sm whitespace-pre-wrap">${content.trim()}</pre>`;
-    });
-
-    const lines = html.split('\n');
-    let inTable = false;
-    let tableHtml = '';
-    let processedLines: string[] = [];
-    let headers: string[] = [];
-
-    // Process tables line by line
-    for (const line of lines) {
-        if (line.includes('<pre>')) { // Skip table processing for preformatted text
-            processedLines.push(line);
-            continue;
-        }
-
-        const cells = line.split(/\s{2,}|	/);
-        const isLikelyTableRow = cells.length > 1 && !line.startsWith('#') && !line.startsWith('-') && !line.startsWith('*') && line.trim() !== '' && !line.includes('---');
-        
-        if (isLikelyTableRow) {
-            if (!inTable) {
-                inTable = true;
-                headers = cells;
-                tableHtml = '<div class="overflow-x-auto my-4"><table class="w-full text-left border-collapse border border-slate-300 dark:border-slate-600">';
-                tableHtml += '<thead><tr class="bg-slate-100 dark:bg-slate-800">';
-                headers.forEach(cell => {
-                    tableHtml += `<th class="border border-slate-300 dark:border-slate-600 px-4 py-2 font-semibold">${cell.trim()}</th>`;
-                });
-                tableHtml += '</tr></thead><tbody>';
-            } else {
-                tableHtml += '<tr class="border-b border-slate-200 dark:border-slate-700">';
-                cells.forEach((cell, index) => {
-                    if (index < headers.length) {
-                       tableHtml += `<td class="border border-slate-300 dark:border-slate-600 px-4 py-2">${cell.trim()}</td>`;
-                    }
-                });
-                for (let i = cells.length; i < headers.length; i++) {
-                    tableHtml += `<td class="border border-slate-300 dark:border-slate-600 px-4 py-2"></td>`;
-                }
-                tableHtml += '</tr>';
-            }
-        } else {
-            if (inTable) {
-                inTable = false;
-                tableHtml += '</tbody></table></div>';
-                processedLines.push(tableHtml);
-                tableHtml = '';
-            }
-            processedLines.push(line);
-        }
-    }
-    if (inTable) {
-        tableHtml += '</tbody></table></div>';
-        processedLines.push(tableHtml);
-    }
-
-    html = processedLines.join('\n');
-    
-    html = html
-      .replace(/<page-break>/g, '')
-      .replace(/-------------------------------------/g, '<hr class="my-8 border-slate-300 dark:border-slate-600" />')
-      .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold text-slate-900 dark:text-white mb-4 mt-8 pb-2 border-b-2 border-sky-500">$1</h1>')
-      .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-semibold text-slate-800 dark:text-slate-200 mb-3 mt-6">$1</h2>')
-      .replace(/^### (.*$)/gim, '<h3 class="text-xl font-semibold text-slate-700 dark:text-slate-300 mb-2 mt-4">$1</h3>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-slate-800 dark:text-slate-100">$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/^\s*[-*] (.*$)/gim, '<li class="list-disc ml-6">$1</li>')
-      .replace(/\n/g, '<br />');
-
-    html = html.replace(/<br \/>(\s*<li)/g, '$1');
-    html = html.replace(/(<\/li>)<br \/>/g, '$1');
-
-    return html;
-};
-
-
-const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, businessData, onStartNew }) => {
+const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, businessData, reportId, onStartNew }) => {
   const { t, i18n } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
@@ -107,7 +27,38 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, businessDat
   const [loadingManual, setLoadingManual] = useState<ManualType | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   
-  const reportContentRef = React.useRef<HTMLDivElement>(null);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [isFeedbackSubmitted, setIsFeedbackSubmitted] = useState(false);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
+  const [benchmarkData, setBenchmarkData] = useState<KPIBenchmark[] | null>(null);
+  const [isLoadingBenchmarks, setIsLoadingBenchmarks] = useState(false);
+  
+  const reportContentRef = useRef<HTMLDivElement>(null);
+
+  // Helper to parse specific AI errors
+  const getSpecificErrorMessage = (error: unknown, defaultMessage: string): string => {
+    if (error instanceof Error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('429') || msg.includes('quota') || msg.includes('exhausted')) {
+             return t('app.errorModal.quotaExceeded');
+        } else if (msg.includes('401') || msg.includes('403') || msg.includes('key') || msg.includes('unauthorized')) {
+             return t('app.errorModal.invalidKey');
+        } else if (msg.includes('block') || msg.includes('safety') || msg.includes('policy')) {
+             return t('app.errorModal.safetyBlock');
+        } else if (msg.includes('503') || msg.includes('500') || msg.includes('overloaded')) {
+            return t('app.errorModal.geminiError');
+        } else if (msg.includes('fetch') || msg.includes('network') || msg.includes('failed to fetch')) {
+           return t('app.errorModal.networkError');
+        } else if (msg.includes('json') || msg.includes('invalid_json_format')) {
+           return t('app.errorModal.jsonError');
+        } else if (msg.includes('empty_response')) {
+           return t('app.errorModal.emptyResponse');
+        }
+    }
+    return defaultMessage;
+  };
 
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(analysis).then(() => {
@@ -128,179 +79,315 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, businessDat
           const originalElement = reportContentRef.current;
           
           // Create a clone of the element to manipulate for PDF generation
-          // We wrap it in a container to enforce A4 width ratios
-          const cloneContainer = document.createElement('div');
-          cloneContainer.style.position = 'absolute';
-          cloneContainer.style.top = '-9999px';
-          cloneContainer.style.left = '0';
-          cloneContainer.style.width = '794px'; // A4 width in pixels at 96 DPI
-          cloneContainer.style.backgroundColor = '#ffffff'; // Force white background
-          cloneContainer.className = 'bg-white text-slate-900 p-8'; // Force light mode styling
-          
-          // Clone the content
+          // We force a white background and text color to ensure readability regardless of theme
           const clone = originalElement.cloneNode(true) as HTMLElement;
+          clone.style.width = '210mm'; // A4 width
+          clone.style.padding = '20mm';
+          clone.style.backgroundColor = 'white';
+          clone.style.color = 'black';
+          clone.classList.remove('dark'); 
           
-          // Remove dark mode classes from the clone and its children to ensure a clean PDF
-          // This is a simple heuristic: remove 'dark:' classes and force text color
-          const removeDarkMode = (el: HTMLElement) => {
-              if (el.classList) {
-                 el.classList.remove('dark:bg-slate-800', 'dark:text-white', 'dark:text-slate-200', 'dark:text-slate-300', 'dark:text-slate-400', 'dark:border-slate-600', 'dark:border-slate-700');
-                 // Add explicit print-friendly classes if needed, or rely on the parent's reset
-              }
-              Array.from(el.children).forEach(child => removeDarkMode(child as HTMLElement));
-          };
-          removeDarkMode(clone);
-          
-          // Remove the "Generate Manuals" section from the PDF
-          const manualSection = clone.querySelector('.no-print');
-          if (manualSection) {
-              manualSection.remove();
-          }
+          document.body.appendChild(clone);
+          clone.style.position = 'absolute';
+          clone.style.left = '-9999px';
+          clone.style.top = '0';
 
-          cloneContainer.appendChild(clone);
-          document.body.appendChild(cloneContainer);
-
-          const canvas = await html2canvas(cloneContainer, {
-              scale: 2, // Higher scale for better clarity
+          const canvas = await html2canvas(clone, {
+              scale: 2, // Higher scale for better quality
               useCORS: true,
               logging: false,
           });
 
-          // Convert to JPEG with 0.8 quality to reduce file size significantly while maintaining good visual quality for text
-          const imgData = canvas.toDataURL('image/jpeg', 0.8);
-          const imgWidth = 210; // A4 width in mm
-          const pageHeight = 297; // A4 height in mm
-          const imgHeight = (canvas.height * imgWidth) / canvas.width;
-          let heightLeft = imgHeight;
+          document.body.removeChild(clone);
 
-          // Enable compression in jsPDF
-          const doc = new jsPDF('p', 'mm', 'a4', true);
+          const imgData = canvas.toDataURL('image/jpeg', 0.8);
+          const pdf = new jsPDF('p', 'mm', 'a4', true);
+          // Enable compression to reduce file size
+          // @ts-ignore: jsPDF types might not include the compression flag in constructor depending on version, but passing true works
+          
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
+          const imgWidth = pdfWidth;
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+          let heightLeft = imgHeight;
           let position = 0;
 
-          doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-          heightLeft -= pageHeight;
+          pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+          heightLeft -= pdfHeight;
 
           while (heightLeft >= 0) {
-              position = heightLeft - imgHeight;
-              doc.addPage();
-              doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-              heightLeft -= pageHeight;
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+            heightLeft -= pdfHeight;
           }
 
-          doc.save(`${businessData.organization_name}_Strategic_Analysis.pdf`);
-          
-          // Cleanup
-          document.body.removeChild(cloneContainer);
-
+          pdf.save(`${businessData.organization_name}_Analysis.pdf`);
       } catch (error) {
-          console.error("Error generating PDF:", error);
-          alert(t('app.errorModal.unknownError'));
+          console.error("PDF Generation Error:", error);
+          alert("Could not generate PDF. Please try again.");
       } finally {
           setIsGeneratingPdf(false);
       }
   };
 
-  const handleGenerateManual = async (manualType: ManualType) => {
-    setLoadingManual(manualType);
-    try {
-        const manual = await generateManual(businessData, analysis, manualType, i18n.language);
-        setManualContent(manual);
-        setManualTitle(t(`analysisDisplay.manuals.${manualType}.title`));
-        setShowManualModal(true);
-    } catch(err) {
-        console.error("Failed to generate manual:", err);
-        alert(t('analysisDisplay.manuals.error'));
-    } finally {
-        setLoadingManual(null);
-    }
+  const handleGenerateManual = async (type: ManualType) => {
+      setLoadingManual(type);
+      try {
+          const result = await generateManual(businessData, analysis, type, i18n.language);
+          setManualTitle(t(`analysisDisplay.manuals.${type}.title`));
+          setManualContent(result);
+          setShowManualModal(true);
+      } catch (error) {
+          console.error("Manual Generation Error:", error);
+          const specificError = getSpecificErrorMessage(error, t('analysisDisplay.manuals.error'));
+          alert(specificError);
+      } finally {
+          setLoadingManual(null);
+      }
+  };
+  
+  const handleGenerateBenchmarks = async () => {
+      setIsLoadingBenchmarks(true);
+      try {
+          const data = await getKeyPerformanceIndicators(businessData, i18n.language);
+          setBenchmarkData(data);
+      } catch (error) {
+          console.error("Benchmark Error:", error);
+          const specificError = getSpecificErrorMessage(error, t('analysisDisplay.benchmarks.error'));
+          alert(specificError);
+      } finally {
+          setIsLoadingBenchmarks(false);
+      }
+  };
+  
+  const handleFeedbackSubmit = async () => {
+      if (!reportId) return;
+      setIsSubmittingFeedback(true);
+      try {
+          await submitFeedback(reportId, rating, comment);
+          setIsFeedbackSubmitted(true);
+      } catch (error) {
+          console.error("Feedback Submit Error:", error);
+          alert("Failed to submit feedback. Please check your connection.");
+      } finally {
+          setIsSubmittingFeedback(false);
+      }
   };
 
-  const manualButtons = [
-    { type: 'financial_policies' as ManualType, icon: BanknotesIcon },
-    { type: 'financial_sops' as ManualType, icon: ClipboardDocumentListIcon },
-    { type: 'admin_sops' as ManualType, icon: BriefcaseIcon },
-  ];
-
-  const reportHtml = simpleTextToHtml(analysis);
+  const formattedAnalysis = simpleTextToHtml(analysis);
 
   return (
-    <div className="animate-fade-in">
-      <style>{`
-        @media print {
-          body, html { background-color: #fff; color: #000; }
-          body * { visibility: hidden; }
-          .printable-area, .printable-area * { visibility: visible; }
-          .printable-area { position: absolute; left: 0; top: 0; width: 100%; border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
-          .dark .printable-area { background-color: #fff !important; }
-          .dark .report-content * { color: #000 !important; border-color: #ccc !important; }
-          .dark .report-content tr { background-color: #f9fafb !important; }
-          .no-print { display: none; }
-          h1, h2, h3 { page-break-after: avoid; }
-          table, hr { page-break-inside: avoid; }
-        }
-      `}</style>
-
-      <ManualDisplayModal 
-        show={showManualModal}
-        title={manualTitle}
-        content={manualContent}
-        onClose={() => setShowManualModal(false)}
-      />
-
-      <div ref={reportContentRef} className="printable-area bg-white dark:bg-slate-800 p-6 sm:p-8 md:p-12 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
-        <div className="prose prose-slate dark:prose-invert max-w-none report-content" dangerouslySetInnerHTML={{ __html: reportHtml }} />
-        
-        <div className="mt-12 pt-8 border-t-2 border-dashed border-slate-300 dark:border-slate-600 no-print">
-            <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-200 mb-2">{t('analysisDisplay.manuals.title')}</h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-6">{t('analysisDisplay.manuals.subtitle')}</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {manualButtons.map(({ type, icon: Icon }) => (
-                <button
-                  key={type}
-                  onClick={() => handleGenerateManual(type)}
-                  disabled={!!loadingManual}
-                  className="flex flex-col items-center justify-center text-center p-6 bg-slate-50 dark:bg-slate-700/50 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-sky-500 dark:hover:border-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/40 transition-all duration-200 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-wait"
-                >
-                  <div className="relative w-12 h-12 flex items-center justify-center">
-                    {loadingManual === type ? (
-                        <div className="w-8 h-8 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                        <Icon className="w-12 h-12 text-sky-500 dark:text-sky-400" />
-                    )}
-                  </div>
-                  <h4 className="font-bold text-slate-800 dark:text-slate-100 mt-4">{t(`analysisDisplay.manuals.${type}.title`)}</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t(`analysisDisplay.manuals.${type}.description`)}</p>
-                </button>
-              ))}
-            </div>
+    <div className="animate-fade-in space-y-8">
+        {/* Actions Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 no-print">
+             <button onClick={onStartNew} className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
+                 &larr; {t('analysisDisplay.startNew')}
+             </button>
+             <div className="flex flex-wrap gap-2">
+                 <button onClick={handleCopyToClipboard} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                     {copied ? <CheckIcon className="w-4 h-4 text-green-500" /> : <DocumentDuplicateIcon className="w-4 h-4" />}
+                     {copied ? t('analysisDisplay.copyButton.copied') : t('analysisDisplay.copyButton.copy')}
+                 </button>
+                 <button onClick={handlePrint} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                     {t('analysisDisplay.printButton')}
+                 </button>
+                 <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600 transition-colors disabled:opacity-70">
+                     <PdfIcon className="w-4 h-4" />
+                     {isGeneratingPdf ? t('analysisDisplay.pdfGenerating') : t('analysisDisplay.pdfButton')}
+                 </button>
+             </div>
         </div>
-      </div>
 
-      <div className="no-print text-center mt-8 flex flex-wrap justify-center items-center gap-4">
-        <button onClick={onStartNew} className="px-6 py-3 bg-slate-600 text-white font-bold rounded-lg shadow-md hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-opacity-75 transition-colors">
-          {t('analysisDisplay.startNew')}
-        </button>
-        <button onClick={handleCopyToClipboard} className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-opacity-75 transition-colors">
-          {copied ? <CheckIcon className="w-5 h-5" /> : <DocumentDuplicateIcon className="w-5 h-5" />}
-          <span>{copied ? t('analysisDisplay.copyButton.copied') : t('analysisDisplay.copyButton.copy')}</span>
-        </button>
-         <button 
-            onClick={handleDownloadPDF} 
-            disabled={isGeneratingPdf}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-75 transition-colors disabled:opacity-70 disabled:cursor-wait"
-        >
-          {isGeneratingPdf ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-          ) : (
-              <PdfIcon className="w-5 h-5" />
-          )}
-          <span>{isGeneratingPdf ? t('analysisDisplay.pdfGenerating') : t('analysisDisplay.pdfButton')}</span>
-        </button>
-        <button onClick={handlePrint} className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 text-white font-bold rounded-lg shadow-md hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-700 focus:ring-opacity-75 transition-colors">
-          <DownloadIcon className="w-5 h-5" />
-          <span>{t('analysisDisplay.printButton')}</span>
-        </button>
-      </div>
+        {/* Report Content */}
+        <div ref={reportContentRef} className="bg-white dark:bg-slate-800 p-8 md:p-12 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
+             {/* Header for PDF/Print */}
+             <div className="hidden print:block mb-8 border-b border-slate-300 pb-4">
+                 <h1 className="text-3xl font-bold text-slate-900">{businessData.organization_name}</h1>
+                 <p className="text-slate-500">Strategic Analysis Report • {new Date().toLocaleDateString()}</p>
+             </div>
+             
+             <div className="prose prose-slate dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: formattedAnalysis }} />
+             
+             {/* Embedded Benchmarks (for PDF export) */}
+             {benchmarkData && (
+                 <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-700">
+                     <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('analysisDisplay.benchmarks.title')}</h3>
+                     <div className="grid grid-cols-1 gap-4">
+                         {benchmarkData.map((item, index) => (
+                             <div key={index} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
+                                 <span className="font-semibold text-slate-700 dark:text-slate-300">{item.kpi}</span>
+                                 <div className="text-sm">
+                                     <span className="text-sky-600 font-bold">{item.companyValue} {item.unit}</span>
+                                     <span className="mx-2 text-slate-400">vs</span>
+                                     <span className="text-slate-500">{item.industryAverage} {item.unit} (Industry)</span>
+                                 </div>
+                             </div>
+                         ))}
+                     </div>
+                 </div>
+             )}
+        </div>
+
+        {/* Financial Benchmarks Section (Interactive) */}
+        <div className="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 no-print">
+             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                 <div>
+                     <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                         <ChartBarIcon className="w-6 h-6 text-sky-500" />
+                         {t('analysisDisplay.benchmarks.title')}
+                     </h3>
+                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('analysisDisplay.benchmarks.subtitle')}</p>
+                 </div>
+                 {!benchmarkData && (
+                     <button 
+                        onClick={handleGenerateBenchmarks}
+                        disabled={isLoadingBenchmarks}
+                        className="px-6 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg shadow hover:bg-indigo-700 disabled:opacity-70 transition-colors flex items-center gap-2"
+                     >
+                         {isLoadingBenchmarks && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                         {t('analysisDisplay.benchmarks.generateButton')}
+                     </button>
+                 )}
+             </div>
+
+             {benchmarkData && (
+                 <div className="animate-fade-in">
+                     <div className="h-[300px] w-full">
+                         <ResponsiveContainer width="100%" height="100%">
+                             <BarChart
+                                 data={benchmarkData}
+                                 margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                             >
+                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                 <XAxis dataKey="kpi" tick={{fill: '#64748b', fontSize: 12}} interval={0} />
+                                 <YAxis tick={{fill: '#64748b'}} />
+                                 <Tooltip 
+                                     contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f8fafc' }}
+                                     itemStyle={{ color: '#f8fafc' }}
+                                 />
+                                 <Legend />
+                                 <Bar dataKey="companyValue" name={t('analysisDisplay.benchmarks.companyLabel')} fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+                                 <Bar dataKey="industryAverage" name={t('analysisDisplay.benchmarks.industryLabel')} fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                             </BarChart>
+                         </ResponsiveContainer>
+                     </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                         {benchmarkData.map((item, index) => (
+                             <div key={index} className="p-4 bg-slate-50 dark:bg-slate-700/30 rounded-lg border border-slate-100 dark:border-slate-700">
+                                 <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-1">{item.kpi}</h4>
+                                 <p className="text-xs text-slate-500 dark:text-slate-400">{item.explanation}</p>
+                             </div>
+                         ))}
+                     </div>
+                 </div>
+             )}
+        </div>
+
+        {/* Manuals Generation Section */}
+        <div className="bg-gradient-to-br from-sky-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900 p-8 rounded-xl border border-sky-100 dark:border-slate-700 no-print">
+             <div className="text-center mb-8">
+                 <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">{t('analysisDisplay.manuals.title')}</h3>
+                 <p className="text-slate-600 dark:text-slate-400">{t('analysisDisplay.manuals.subtitle')}</p>
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                 <button 
+                    onClick={() => handleGenerateManual('financial_policies')}
+                    disabled={!!loadingManual}
+                    className="flex flex-col items-center p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-sky-300 dark:hover:border-sky-700 transition-all disabled:opacity-70"
+                 >
+                     <div className="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full mb-4">
+                         {loadingManual === 'financial_policies' ? <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <BanknotesIcon className="w-6 h-6" />}
+                     </div>
+                     <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-center">{t('analysisDisplay.manuals.financial_policies.title')}</h4>
+                     <p className="text-xs text-slate-500 dark:text-slate-400 text-center">{t('analysisDisplay.manuals.financial_policies.description')}</p>
+                 </button>
+
+                 <button 
+                    onClick={() => handleGenerateManual('financial_sops')}
+                    disabled={!!loadingManual}
+                    className="flex flex-col items-center p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-sky-300 dark:hover:border-sky-700 transition-all disabled:opacity-70"
+                 >
+                     <div className="p-3 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full mb-4">
+                         {loadingManual === 'financial_sops' ? <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <ClipboardDocumentListIcon className="w-6 h-6" />}
+                     </div>
+                     <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-center">{t('analysisDisplay.manuals.financial_sops.title')}</h4>
+                     <p className="text-xs text-slate-500 dark:text-slate-400 text-center">{t('analysisDisplay.manuals.financial_sops.description')}</p>
+                 </button>
+
+                 <button 
+                    onClick={() => handleGenerateManual('admin_sops')}
+                    disabled={!!loadingManual}
+                    className="flex flex-col items-center p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-sky-300 dark:hover:border-sky-700 transition-all disabled:opacity-70"
+                 >
+                     <div className="p-3 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full mb-4">
+                         {loadingManual === 'admin_sops' ? <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <BriefcaseIcon className="w-6 h-6" />}
+                     </div>
+                     <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-center">{t('analysisDisplay.manuals.admin_sops.title')}</h4>
+                     <p className="text-xs text-slate-500 dark:text-slate-400 text-center">{t('analysisDisplay.manuals.admin_sops.description')}</p>
+                 </button>
+             </div>
+        </div>
+        
+        {/* Feedback Section */}
+        {reportId && (
+            <div className="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 no-print">
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-6 text-center">{t('analysisDisplay.feedback.title')}</h3>
+                
+                {isFeedbackSubmitted ? (
+                    <div className="text-center py-8 animate-fade-in">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 text-green-500 rounded-full mb-4">
+                            <CheckIcon className="w-8 h-8" />
+                        </div>
+                        <p className="text-lg font-semibold text-slate-700 dark:text-slate-200">{t('analysisDisplay.feedback.success')}</p>
+                    </div>
+                ) : (
+                    <div className="max-w-lg mx-auto space-y-6">
+                        <div className="flex flex-col items-center gap-3">
+                             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('analysisDisplay.feedback.ratingLabel')}</label>
+                             <div className="flex gap-2">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <button
+                                        key={star}
+                                        type="button"
+                                        onClick={() => setRating(star)}
+                                        className={`focus:outline-none transition-transform hover:scale-110 ${star <= rating ? 'text-yellow-400' : 'text-slate-300 dark:text-slate-600'}`}
+                                    >
+                                        <StarIcon className="w-8 h-8 fill-current" />
+                                    </button>
+                                ))}
+                             </div>
+                        </div>
+                        
+                        <div>
+                             <textarea
+                                value={comment}
+                                onChange={(e) => setComment(e.target.value)}
+                                placeholder={t('analysisDisplay.feedback.placeholder')}
+                                rows={3}
+                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
+                             />
+                        </div>
+                        
+                        <button
+                            onClick={handleFeedbackSubmit}
+                            disabled={rating === 0 || isSubmittingFeedback}
+                            className="w-full py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {isSubmittingFeedback ? 'Submitting...' : t('analysisDisplay.feedback.submit')}
+                        </button>
+                    </div>
+                )}
+            </div>
+        )}
+
+        <ManualDisplayModal 
+            show={showManualModal}
+            title={manualTitle}
+            content={manualContent}
+            onClose={() => setShowManualModal(false)}
+        />
     </div>
   );
 };

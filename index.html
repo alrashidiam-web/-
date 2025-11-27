@@ -31,23 +31,31 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      // Safely initialize process.env for browser compatibility without overwriting existing keys
+      // Safely initialize process.env for browser compatibility
       window.process = window.process || {};
       window.process.env = window.process.env || {};
       
-      // Set Bubble credentials if not already present
-      if (!window.process.env.BUBBLE_APP_NAME) window.process.env.BUBBLE_APP_NAME = 'EPA';
-      if (!window.process.env.BUBBLE_API_TOKEN) window.process.env.BUBBLE_API_TOKEN = '983943a6719611d4a03d968d1f30d8d9';
-      
-      // Ensure API_KEY placeholder exists to prevent crashes, but NEVER overwrite if injected by build/hosting
-      if (typeof window.process.env.API_KEY === 'undefined') {
-        window.process.env.API_KEY = ''; 
+      // Helper to try reading from different potential sources
+      function setEnv(key, fallback) {
+        if (typeof window.process.env[key] === 'undefined') {
+           // Try VITE_ prefix if standard key missing (common in Vite/Vercel)
+           window.process.env[key] = window.process.env[`VITE_${key}`] || fallback || '';
+        }
       }
+
+      setEnv('API_KEY', '');
+      setEnv('VITE_SUPABASE_URL', '');
+      setEnv('VITE_SUPABASE_ANON_KEY', '');
+      
+      // Legacy Bubble keys (kept for backward compatibility if needed, but unused in new arch)
+      setEnv('BUBBLE_APP_NAME', 'EPA');
+      setEnv('BUBBLE_API_TOKEN', '983943a6719611d4a03d968d1f30d8d9');
     </script>
   <script type="importmap">
 {
   "imports": {
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
@@ -55,7 +63,9 @@
     "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1",
     "i18next": "https://aistudiocdn.com/i18next@^23.11.5",
     "react-i18next": "https://aistudiocdn.com/react-i18next@^14.1.2",
-    "i18next-browser-languagedetector": "https://aistudiocdn.com/i18next-browser-languagedetector@^8.0.0"
+    "i18next-browser-languagedetector": "https://aistudiocdn.com/i18next-browser-languagedetector@^8.0.0",
+    "recharts": "https://esm.sh/recharts@2.12.0?external=react,react-dom",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.0"
   }
 }
 </script>
