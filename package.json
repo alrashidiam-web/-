@@ -1,22 +1,23 @@
 {
   "name": "strategic-advisor-app",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@google/genai": "^0.1.1",
+    "@google/genai": "*",
     "@supabase/supabase-js": "^2.39.0",
     "html2canvas": "^1.4.1",
     "i18next": "^23.11.5",
     "i18next-browser-languagedetector": "^8.0.0",
     "jspdf": "^2.5.1",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
     "react-i18next": "^14.1.2",
     "recharts": "^2.12.7"
   },
@@ -29,5 +30,9 @@
     "tailwindcss": "^3.4.4",
     "typescript": "^5.5.3",
     "vite": "^5.4.1"
+  },
+  "overrides": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   }
 }

@@ -1,6 +1,7 @@
 
 export interface BusinessData {
   organization_name: string;
+  legal_form: string;
   sector: string;
   size: string;
   company_location: string;
@@ -59,10 +60,51 @@ export interface User {
   created_at: string;
 }
 
+export interface UserProfile {
+  id: string;
+  email: string;
+  subscription_tier: 'free' | 'pro' | 'enterprise';
+  subscription_status: string;
+  is_admin?: boolean; 
+  created_at?: string;
+}
+
 export interface KPIBenchmark {
   kpi: string;
   companyValue: number;
   industryAverage: number;
   unit: string;
   explanation: string;
+}
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  date: string;
+  category: string;
+  readTime: string;
+  is_published?: boolean;
+}
+
+export interface FAQItem {
+  id: string;
+  question_ar: string;
+  answer_ar: string;
+  question_en: string;
+  answer_en: string;
+  display_order: number;
+}
+
+export interface AppSettings {
+  linkedin_url?: string;
+  twitter_url?: string;
+  instagram_url?: string;
+  youtube_url?: string;
+  contact_email?: string;
+  maintenance_mode?: string; // "true" or "false"
+  enable_registration?: string; // "true" or "false"
+  stripe_public_key?: string;
+  [key: string]: string | undefined;
 }

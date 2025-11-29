@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DownloadIcon, DocumentDuplicateIcon, CheckIcon, BanknotesIcon, ClipboardDocumentListIcon, BriefcaseIcon, PdfIcon, StarIcon, ChartBarIcon } from './icons';
+import { DownloadIcon, DocumentDuplicateIcon, CheckIcon, BanknotesIcon, ClipboardDocumentListIcon, BriefcaseIcon, PdfIcon, WordIcon, StarIcon, ChartBarIcon } from './icons';
 import type { BusinessData, ManualType, KPIBenchmark } from '../types';
 import { generateManual, getKeyPerformanceIndicators } from '../services/geminiService';
 import { submitFeedback } from '../services/supabaseService';
@@ -69,6 +69,26 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, businessDat
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadWord = () => {
+    const header = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><meta charset='utf-8'><title>Export HTML to Word Document with JavaScript</title></head><body>
+    `;
+    
+    // We remove the dark mode classes for the Word export to keep it clean
+    const content = formattedAnalysis.replace(/class="[^"]*"/g, ''); 
+    const footer = "</body></html>";
+    const sourceHTML = header+content+footer;
+    
+    const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
+    const fileDownload = document.createElement("a");
+    document.body.appendChild(fileDownload);
+    fileDownload.href = source;
+    fileDownload.download = `${businessData.organization_name}_Analysis.doc`;
+    fileDownload.click();
+    document.body.removeChild(fileDownload);
   };
 
   const handleDownloadPDF = async () => {
@@ -181,19 +201,20 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, businessDat
   return (
     <div className="animate-fade-in space-y-8">
         {/* Actions Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 no-print">
-             <button onClick={onStartNew} className="px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 no-print sticky top-20 z-10">
+             <button onClick={onStartNew} className="w-full md:w-auto px-4 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 transition-colors bg-slate-50 dark:bg-slate-700/50 rounded-lg hover:bg-slate-100">
                  &larr; {t('analysisDisplay.startNew')}
              </button>
-             <div className="flex flex-wrap gap-2">
-                 <button onClick={handleCopyToClipboard} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+             <div className="flex flex-wrap gap-3 w-full md:w-auto justify-end">
+                 <button onClick={handleCopyToClipboard} className="flex-1 md:flex-none justify-center items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-white border border-slate-300 dark:bg-slate-700 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm">
                      {copied ? <CheckIcon className="w-4 h-4 text-green-500" /> : <DocumentDuplicateIcon className="w-4 h-4" />}
-                     {copied ? t('analysisDisplay.copyButton.copied') : t('analysisDisplay.copyButton.copy')}
+                     <span>{copied ? t('analysisDisplay.copyButton.copied') : t('analysisDisplay.copyButton.copy')}</span>
                  </button>
-                 <button onClick={handlePrint} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 rounded-md hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
-                     {t('analysisDisplay.printButton')}
+                 <button onClick={handleDownloadWord} className="flex-1 md:flex-none justify-center items-center gap-2 px-4 py-2 text-sm font-bold text-blue-700 bg-blue-50 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300 rounded-lg hover:bg-blue-100 transition-colors shadow-sm">
+                     <WordIcon className="w-4 h-4" />
+                     <span>Word</span>
                  </button>
-                 <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600 transition-colors disabled:opacity-70">
+                 <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="flex-1 md:flex-none justify-center items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-gradient-to-r from-red-500 to-red-600 rounded-lg hover:from-red-600 hover:to-red-700 transition-all shadow-md disabled:opacity-70">
                      <PdfIcon className="w-4 h-4" />
                      {isGeneratingPdf ? t('analysisDisplay.pdfGenerating') : t('analysisDisplay.pdfButton')}
                  </button>
@@ -201,27 +222,29 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, businessDat
         </div>
 
         {/* Report Content */}
-        <div ref={reportContentRef} className="bg-white dark:bg-slate-800 p-8 md:p-12 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
+        <div ref={reportContentRef} className="bg-white dark:bg-slate-800 p-8 md:p-12 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700">
              {/* Header for PDF/Print */}
-             <div className="hidden print:block mb-8 border-b border-slate-300 pb-4">
-                 <h1 className="text-3xl font-bold text-slate-900">{businessData.organization_name}</h1>
-                 <p className="text-slate-500">Strategic Analysis Report • {new Date().toLocaleDateString()}</p>
+             <div className="hidden print:block mb-10 border-b-2 border-slate-800 pb-6">
+                 <h1 className="text-4xl font-extrabold text-slate-900 mb-2">{businessData.organization_name}</h1>
+                 <p className="text-slate-500 text-lg uppercase tracking-wide">Strategic Analysis Report • {new Date().toLocaleDateString()}</p>
              </div>
              
-             <div className="prose prose-slate dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: formattedAnalysis }} />
+             <div className="prose prose-slate prose-lg dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: formattedAnalysis }} />
              
              {/* Embedded Benchmarks (for PDF export) */}
              {benchmarkData && (
-                 <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-700">
-                     <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('analysisDisplay.benchmarks.title')}</h3>
-                     <div className="grid grid-cols-1 gap-4">
+                 <div className="mt-12 pt-8 border-t-2 border-slate-200 dark:border-slate-700 break-inside-avoid">
+                     <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">{t('analysisDisplay.benchmarks.title')}</h3>
+                     <div className="grid grid-cols-1 gap-6">
                          {benchmarkData.map((item, index) => (
-                             <div key={index} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-2">
-                                 <span className="font-semibold text-slate-700 dark:text-slate-300">{item.kpi}</span>
-                                 <div className="text-sm">
-                                     <span className="text-sky-600 font-bold">{item.companyValue} {item.unit}</span>
-                                     <span className="mx-2 text-slate-400">vs</span>
-                                     <span className="text-slate-500">{item.industryAverage} {item.unit} (Industry)</span>
+                             <div key={index} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
+                                 <div>
+                                     <span className="block font-bold text-lg text-slate-800 dark:text-slate-200">{item.kpi}</span>
+                                     <span className="text-sm text-slate-500">{item.explanation}</span>
+                                 </div>
+                                 <div className="text-right">
+                                     <div className="text-lg font-bold text-sky-600">{item.companyValue} {item.unit}</div>
+                                     <div className="text-sm text-slate-400">vs Industry: {item.industryAverage} {item.unit}</div>
                                  </div>
                              </div>
                          ))}
@@ -231,22 +254,24 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, businessDat
         </div>
 
         {/* Financial Benchmarks Section (Interactive) */}
-        <div className="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 no-print">
-             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+        <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 no-print transition-all hover:shadow-2xl">
+             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                  <div>
-                     <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                         <ChartBarIcon className="w-6 h-6 text-sky-500" />
+                     <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+                         <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
+                            <ChartBarIcon className="w-6 h-6" />
+                         </div>
                          {t('analysisDisplay.benchmarks.title')}
                      </h3>
-                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('analysisDisplay.benchmarks.subtitle')}</p>
+                     <p className="text-slate-500 dark:text-slate-400 mt-2 ml-11">{t('analysisDisplay.benchmarks.subtitle')}</p>
                  </div>
                  {!benchmarkData && (
                      <button 
                         onClick={handleGenerateBenchmarks}
                         disabled={isLoadingBenchmarks}
-                        className="px-6 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg shadow hover:bg-indigo-700 disabled:opacity-70 transition-colors flex items-center gap-2"
+                        className="w-full md:w-auto px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 hover:shadow-indigo-500/30 disabled:opacity-70 transition-all flex items-center justify-center gap-2"
                      >
-                         {isLoadingBenchmarks && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                         {isLoadingBenchmarks && <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                          {t('analysisDisplay.benchmarks.generateButton')}
                      </button>
                  )}
@@ -254,30 +279,32 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, businessDat
 
              {benchmarkData && (
                  <div className="animate-fade-in">
-                     <div className="h-[300px] w-full">
+                     <div className="h-[400px] w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700">
                          <ResponsiveContainer width="100%" height="100%">
                              <BarChart
                                  data={benchmarkData}
                                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                                 barSize={40}
                              >
-                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                 <XAxis dataKey="kpi" tick={{fill: '#64748b', fontSize: 12}} interval={0} />
-                                 <YAxis tick={{fill: '#64748b'}} />
+                                 <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" vertical={false} />
+                                 <XAxis dataKey="kpi" tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} interval={0} axisLine={false} tickLine={false} />
+                                 <YAxis tick={{fill: '#64748b'}} axisLine={false} tickLine={false} />
                                  <Tooltip 
-                                     contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#f8fafc' }}
-                                     itemStyle={{ color: '#f8fafc' }}
+                                     cursor={{fill: 'transparent'}}
+                                     contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#f8fafc', padding: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
+                                     itemStyle={{ color: '#f8fafc', paddingBottom: '4px' }}
                                  />
-                                 <Legend />
-                                 <Bar dataKey="companyValue" name={t('analysisDisplay.benchmarks.companyLabel')} fill="#0ea5e9" radius={[4, 4, 0, 0]} />
-                                 <Bar dataKey="industryAverage" name={t('analysisDisplay.benchmarks.industryLabel')} fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                                 <Legend wrapperStyle={{paddingTop: '20px'}} />
+                                 <Bar dataKey="companyValue" name={t('analysisDisplay.benchmarks.companyLabel')} fill="#0ea5e9" radius={[6, 6, 0, 0]} />
+                                 <Bar dataKey="industryAverage" name={t('analysisDisplay.benchmarks.industryLabel')} fill="#94a3b8" radius={[6, 6, 0, 0]} />
                              </BarChart>
                          </ResponsiveContainer>
                      </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
                          {benchmarkData.map((item, index) => (
-                             <div key={index} className="p-4 bg-slate-50 dark:bg-slate-700/30 rounded-lg border border-slate-100 dark:border-slate-700">
-                                 <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-1">{item.kpi}</h4>
-                                 <p className="text-xs text-slate-500 dark:text-slate-400">{item.explanation}</p>
+                             <div key={index} className="p-5 bg-white dark:bg-slate-700/30 rounded-xl border border-slate-100 dark:border-slate-600 shadow-sm hover:border-sky-200 dark:hover:border-sky-800 transition-colors">
+                                 <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-2 text-lg">{item.kpi}</h4>
+                                 <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{item.explanation}</p>
                              </div>
                          ))}
                      </div>
@@ -286,75 +313,76 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, businessDat
         </div>
 
         {/* Manuals Generation Section */}
-        <div className="bg-gradient-to-br from-sky-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900 p-8 rounded-xl border border-sky-100 dark:border-slate-700 no-print">
-             <div className="text-center mb-8">
-                 <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">{t('analysisDisplay.manuals.title')}</h3>
-                 <p className="text-slate-600 dark:text-slate-400">{t('analysisDisplay.manuals.subtitle')}</p>
+        <div className="bg-gradient-to-br from-slate-50 to-sky-50 dark:from-slate-800 dark:to-slate-900 p-8 md:p-10 rounded-2xl border border-sky-100 dark:border-slate-700 no-print">
+             <div className="text-center mb-10">
+                 <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-3">{t('analysisDisplay.manuals.title')}</h3>
+                 <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">{t('analysisDisplay.manuals.subtitle')}</p>
              </div>
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                  <button 
                     onClick={() => handleGenerateManual('financial_policies')}
                     disabled={!!loadingManual}
-                    className="flex flex-col items-center p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-sky-300 dark:hover:border-sky-700 transition-all disabled:opacity-70"
+                    className="group flex flex-col items-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-700 hover:-translate-y-1 transition-all disabled:opacity-70"
                  >
-                     <div className="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full mb-4">
-                         {loadingManual === 'financial_policies' ? <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <BanknotesIcon className="w-6 h-6" />}
+                     <div className="p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full mb-6 group-hover:scale-110 transition-transform">
+                         {loadingManual === 'financial_policies' ? <div className="w-8 h-8 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <BanknotesIcon className="w-8 h-8" />}
                      </div>
-                     <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-center">{t('analysisDisplay.manuals.financial_policies.title')}</h4>
-                     <p className="text-xs text-slate-500 dark:text-slate-400 text-center">{t('analysisDisplay.manuals.financial_policies.description')}</p>
+                     <h4 className="font-bold text-lg text-slate-900 dark:text-white mb-3 text-center">{t('analysisDisplay.manuals.financial_policies.title')}</h4>
+                     <p className="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">{t('analysisDisplay.manuals.financial_policies.description')}</p>
                  </button>
 
                  <button 
                     onClick={() => handleGenerateManual('financial_sops')}
                     disabled={!!loadingManual}
-                    className="flex flex-col items-center p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-sky-300 dark:hover:border-sky-700 transition-all disabled:opacity-70"
+                    className="group flex flex-col items-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-xl hover:border-purple-300 dark:hover:border-purple-700 hover:-translate-y-1 transition-all disabled:opacity-70"
                  >
-                     <div className="p-3 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full mb-4">
-                         {loadingManual === 'financial_sops' ? <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <ClipboardDocumentListIcon className="w-6 h-6" />}
+                     <div className="p-4 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-full mb-6 group-hover:scale-110 transition-transform">
+                         {loadingManual === 'financial_sops' ? <div className="w-8 h-8 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <ClipboardDocumentListIcon className="w-8 h-8" />}
                      </div>
-                     <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-center">{t('analysisDisplay.manuals.financial_sops.title')}</h4>
-                     <p className="text-xs text-slate-500 dark:text-slate-400 text-center">{t('analysisDisplay.manuals.financial_sops.description')}</p>
+                     <h4 className="font-bold text-lg text-slate-900 dark:text-white mb-3 text-center">{t('analysisDisplay.manuals.financial_sops.title')}</h4>
+                     <p className="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">{t('analysisDisplay.manuals.financial_sops.description')}</p>
                  </button>
 
                  <button 
                     onClick={() => handleGenerateManual('admin_sops')}
                     disabled={!!loadingManual}
-                    className="flex flex-col items-center p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-sky-300 dark:hover:border-sky-700 transition-all disabled:opacity-70"
+                    className="group flex flex-col items-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-xl hover:border-green-300 dark:hover:border-green-700 hover:-translate-y-1 transition-all disabled:opacity-70"
                  >
-                     <div className="p-3 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full mb-4">
-                         {loadingManual === 'admin_sops' ? <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <BriefcaseIcon className="w-6 h-6" />}
+                     <div className="p-4 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-full mb-6 group-hover:scale-110 transition-transform">
+                         {loadingManual === 'admin_sops' ? <div className="w-8 h-8 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <BriefcaseIcon className="w-8 h-8" />}
                      </div>
-                     <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-center">{t('analysisDisplay.manuals.admin_sops.title')}</h4>
-                     <p className="text-xs text-slate-500 dark:text-slate-400 text-center">{t('analysisDisplay.manuals.admin_sops.description')}</p>
+                     <h4 className="font-bold text-lg text-slate-900 dark:text-white mb-3 text-center">{t('analysisDisplay.manuals.admin_sops.title')}</h4>
+                     <p className="text-sm text-slate-500 dark:text-slate-400 text-center leading-relaxed">{t('analysisDisplay.manuals.admin_sops.description')}</p>
                  </button>
              </div>
         </div>
         
         {/* Feedback Section */}
         {reportId && (
-            <div className="bg-white dark:bg-slate-800 p-8 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 no-print">
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-6 text-center">{t('analysisDisplay.feedback.title')}</h3>
+            <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 no-print">
+                <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-8 text-center">{t('analysisDisplay.feedback.title')}</h3>
                 
                 {isFeedbackSubmitted ? (
-                    <div className="text-center py-8 animate-fade-in">
-                        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 text-green-500 rounded-full mb-4">
-                            <CheckIcon className="w-8 h-8" />
+                    <div className="text-center py-8 animate-fade-in bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-100 dark:border-green-900/30">
+                        <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 dark:bg-green-900/30 text-green-500 rounded-full mb-6">
+                            <CheckIcon className="w-10 h-10" />
                         </div>
-                        <p className="text-lg font-semibold text-slate-700 dark:text-slate-200">{t('analysisDisplay.feedback.success')}</p>
+                        <p className="text-xl font-bold text-slate-800 dark:text-white mb-2">{t('analysisDisplay.feedback.success')}</p>
+                        <p className="text-slate-500 dark:text-slate-400">Your insights help us improve.</p>
                     </div>
                 ) : (
-                    <div className="max-w-lg mx-auto space-y-6">
-                        <div className="flex flex-col items-center gap-3">
-                             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t('analysisDisplay.feedback.ratingLabel')}</label>
-                             <div className="flex gap-2">
+                    <div className="max-w-xl mx-auto space-y-8">
+                        <div className="flex flex-col items-center gap-4">
+                             <label className="text-base font-medium text-slate-700 dark:text-slate-300">{t('analysisDisplay.feedback.ratingLabel')}</label>
+                             <div className="flex gap-3">
                                 {[1, 2, 3, 4, 5].map((star) => (
                                     <button
                                         key={star}
                                         type="button"
                                         onClick={() => setRating(star)}
-                                        className={`focus:outline-none transition-transform hover:scale-110 ${star <= rating ? 'text-yellow-400' : 'text-slate-300 dark:text-slate-600'}`}
+                                        className={`focus:outline-none transition-all hover:scale-110 p-1 ${star <= rating ? 'text-yellow-400 drop-shadow-sm' : 'text-slate-200 dark:text-slate-600'}`}
                                     >
-                                        <StarIcon className="w-8 h-8 fill-current" />
+                                        <StarIcon className="w-10 h-10 fill-current" />
                                     </button>
                                 ))}
                              </div>
@@ -365,15 +393,15 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, businessDat
                                 value={comment}
                                 onChange={(e) => setComment(e.target.value)}
                                 placeholder={t('analysisDisplay.feedback.placeholder')}
-                                rows={3}
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
+                                rows={4}
+                                className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all resize-none"
                              />
                         </div>
                         
                         <button
                             onClick={handleFeedbackSubmit}
                             disabled={rating === 0 || isSubmittingFeedback}
-                            className="w-full py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="w-full py-4 bg-sky-600 text-white font-bold text-lg rounded-xl shadow-lg hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95"
                         >
                             {isSubmittingFeedback ? 'Submitting...' : t('analysisDisplay.feedback.submit')}
                         </button>

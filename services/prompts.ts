@@ -1,4 +1,6 @@
 
+
+
 import type { BusinessData, ManualType } from '../types';
 
 interface Prompts {
@@ -79,7 +81,7 @@ const prompts: Record<string, Prompts> = {
 خلاصة عامة، أهم 10 توصيات مركزة، المخاطر المحتملة عند التنفيذ، وشروط النجاح.
 `,
     user: (data) => {
-      let prompt = `يرجى إنشاء تقرير استشاري كامل بناءً على بيانات العمل التالية، مع الالتزام الصارم بالهيكل والتنسيق المطلوبين في تعليمات النظام.\n\n**بيانات العمل:**\n- **اسم المنظمة:** ${data.organization_name}\n- **القطاع:** ${data.sector}\n- **الحجم:** ${data.size}\n- **الأقسام الرئيسية:** ${data.key_departments}\n- **نظام المحاسبة الحالي:** ${data.current_accounting_system}\n- **نظرة عامة على العمليات التشغيلية:** ${data.operational_processes_overview}\n`;
+      let prompt = `يرجى إنشاء تقرير استشاري كامل بناءً على بيانات العمل التالية، مع الالتزام الصارم بالهيكل والتنسيق المطلوبين في تعليمات النظام.\n\n**بيانات العمل:**\n- **اسم المنظمة:** ${data.organization_name}\n- **الشكل القانوني:** ${data.legal_form}\n- **القطاع:** ${data.sector}\n- **الحجم:** ${data.size}\n- **الأقسام الرئيسية:** ${data.key_departments}\n- **نظام المحاسبة الحالي:** ${data.current_accounting_system}\n- **نظرة عامة على العمليات التشغيلية:** ${data.operational_processes_overview}\n`;
       
       // Logic to control report depth based on detail_level
       switch (data.detail_level) {
@@ -194,7 +196,7 @@ An implementation roadmap in a table format.
 A general summary, the top 10 focused recommendations, potential implementation risks, and conditions for success.
 `,
     user: (data) => {
-        let prompt = `Please generate a complete consulting report based on the following business data, strictly adhering to the structure and formatting required in the system instructions.\n\n**Business Data:**\n- **Organization Name:** ${data.organization_name}\n- **Sector:** ${data.sector}\n- **Size:** ${data.size}\n- **Key Departments:** ${data.key_departments}\n- **Current Accounting System:** ${data.current_accounting_system}\n- **Operational Processes Overview:** ${data.operational_processes_overview}\n`;
+        let prompt = `Please generate a complete consulting report based on the following business data, strictly adhering to the structure and formatting required in the system instructions.\n\n**Business Data:**\n- **Organization Name:** ${data.organization_name}\n- **Legal Form:** ${data.legal_form}\n- **Sector:** ${data.sector}\n- **Size:** ${data.size}\n- **Key Departments:** ${data.key_departments}\n- **Current Accounting System:** ${data.current_accounting_system}\n- **Operational Processes Overview:** ${data.operational_processes_overview}\n`;
 
         // Logic to control report depth based on detail_level
         switch (data.detail_level) {
@@ -316,6 +318,7 @@ const manualPrompts: Record<string, ManualPrompts> = {
 قم بإعداد الدليل المطلوب بناءً على بيانات المنشأة التالية:
 
 - **اسم الشركة:** ${businessData.organization_name}
+- **الشكل القانوني:** ${businessData.legal_form}
 - **النشاط:** ${businessData.sector}
 - **المنطقة الجغرافية:** ${businessData.company_location}
 - **الحجم:** ${businessData.size}
@@ -396,6 +399,7 @@ As a consultant in administrative process improvement (in the style of Deloitte)
 Prepare the requested manual based on the following company data:
 
 - **Company Name:** ${businessData.organization_name}
+- **Legal Form:** ${businessData.legal_form}
 - **Activity:** ${businessData.sector}
 - **Geographic Area:** ${businessData.company_location}
 - **Size:** ${businessData.size}
